@@ -49,12 +49,12 @@ colnames(d)
 And see if you can figure out what range the likert scores are in. What's the highest number on the likert scale, and what's the lowest? (Hint, `d$Game1Angry1` is one of the likert rating columns, and you may want to use `unique` or `range` or `hist`)
 
 ```{r}
-## your code here
-
+max(d$Game1Angry1, na.rm=T)
+min(d$Game1Angry1, na.rm=T)
 ```
 
-Highest number: [Your answer here]
-Lowest number: [Your answer here]
+Highest number: **7**
+Lowest number: **1**
 
 # cleaning up a bit
 
@@ -80,7 +80,7 @@ The researchers have made a column called `DoNotUse` based on their exclusion cr
 
 ```{r}
 filtered_d = d %>% 
-  filter(   ) # your code here: exclude subjects that are marked as "DoNotUse"
+  filter(is.na(DoNotUse)) # your code here: exclude subjects that are marked as "DoNotUse"
 ```
 
 It's good practice to assign a new variable name (in this case `filtered_d`) to a data frame when you change it in an important way, or apply a code chunk that shouldn't be run twice. This helps prevent you seeing different results when you run your code in chunks (and might run one multiple times, or skip it, etc.) vs. knit the document.
@@ -117,7 +117,7 @@ Now you try! Fill in the selection criteria to get rid of the "Game" columns, wh
 
 ```{r}
 performance_hyp_d = filtered_d %>% 
-  select( ) # your code here: remove the columns containing "Game" in the name
+  select(-contains("Game")) # your code here: remove the columns containing "Game" in the name
 ```
 
 # Converting to long form
@@ -157,8 +157,9 @@ And you can convert the rating dataset! (Call the "Key" column "Measurement" and
 
 ```{r}
 rating_hyp_long_d = rating_hyp_d %>%
-  ## your code here
-
+  pivot_longer(cols=-c("Subject", "Cond"),
+               names_to='Measurement', 
+               values_to='Rating') ## your code here
 head(rating_hyp_long_d)
 ```
 
@@ -179,7 +180,7 @@ Now you can help! For the rating dataset, write a test on a measurement name, us
 ```{r}
 rating_hyp_long_d = rating_hyp_long_d %>%
   mutate(
-    IsRecall = ,## Your code here
+    IsRecall = grepl("Friends|Strangers", Measurement),## Your code here
   )
 ```
 
@@ -227,7 +228,9 @@ The rating hypothesis analysis also requires some grouped manipulation. The expe
 
 ```{r}
 rating_summary_d = rating_hyp_long_d %>% 
-  ## your code here
+  group_by(ConfrontationalGame, Emotion) %>% # three emotions: Angry, Neutral, Exciting, and two game types: confrontational and nonconfrontational
+  summarize(MeanRating = mean(Rating, na.rm=T)) %>%
+  ungroup() ## your code here
 ```
 
 Let's take a look at the result:
@@ -280,7 +283,14 @@ Now we're finally to reproduce Fig. 2 from Tamir et al., we just need to get the
 
 ```{r}
 performance_diff_summary_d = performance_diff_d %>%
-  ## Your code here
+  group_by(ConfrontationalGame, MusicCondition) %>% # two game types: confrontational and nonconfrontational, and three music conditions: Exciting, Anger, Neutral
+  summarize(
+    MeanImprovementScore = mean(ImprovementScore, na.rm=T),
+    sd_correct = sd(ImprovementScore, na.rm=T), # for Bonus below
+    n_obs = length(ImprovementScore),
+    SEM = sd_correct / sqrt(n_obs) 
+    ) %>%
+  ungroup() ## Your code here
 ```
 
 Let's take a look at your result (if it has `NA` values, how can you fix it?):
@@ -294,6 +304,7 @@ and plot it!
 ```{r TamirFig2}
 ggplot(performance_diff_summary_d, aes(x=ConfrontationalGame, y=MeanImprovementScore, fill=MusicCondition)) +
   geom_bar(position="dodge", stat="identity") + 
+  geom_errorbar(aes(ymin = MeanImprovementScore - SEM, ymax = MeanImprovementScore + SEM), position="dodge") + # for Bonus below 
   scale_fill_brewer(palette="Set1")
 ```
 
